@@ -6,9 +6,8 @@ const S3 = new AWS.S3 ({ region: 'ap-northeast-2'});
 exports.handler = async (event, context, callback) => {
     const Bucket = event.Records[0].s3.bucket.name;
     const Key = event.Records[0].s3.object.key;
-    const filename = Key.split('/')[[Key.split('/').length - 1]];
-    const ext = Key.split('.')[[Key.split('.').length - 1]];
-
+    const filename = Key.split('/')[Key.split('/').length - 1];
+    const ext = Key.split('.')[Key.split('.').length - 1];
     const requiredFormat = ext === 'jpg' ? 'jpeg' : ext;
 
     try {
@@ -17,6 +16,7 @@ exports.handler = async (event, context, callback) => {
             Bucket,
             Key,
         }).promise();
+        console.log('original', s3Object.Body.length);
 
         // 이미지 리사이징
         const resizedImage = await Sharp(s3Object.Body)
@@ -25,16 +25,19 @@ exports.handler = async (event, context, callback) => {
         })
         .toFormat(requiredFormat)
         .toBuffer();
+        console.log('resize', resizedImage.length);
 
         // 리사이징된 데이터 S3 Bucket에 다시넣기
         await S3.putObject({
             Bucket,
-            key: `thumb/${filename}`,
+            Key: `thumb/${filename}`,
             Body: resizedImage,
-        })
+        }).promise();
+        console.log("put");
         return callback(null, `thumb/${filename}`);
     } catch(e) {
-
+        console.error(e);
+        return callback(e);
     }
 
 }
